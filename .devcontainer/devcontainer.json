@@ -1,0 +1,45 @@
+{
+    "name": "Qwen3 GGUF Chat (llama.cpp CUDA, offline)",
+    // GitHub Actionsでビルドし、オフラインPCで `docker load` したイメージ名・タグ
+    "image": "qwen-gguf-llamacpp:latest",
+
+    // devcontainer起動時はENTRYPOINTの自動サーバー起動を上書きし、
+    // 手動でモデルやパラメータを選んで起動できるようにする
+    "overrideCommand": true,
+
+    "runArgs": [
+        "--gpus", "all"
+    ],
+
+    // 使用したいGGUFファイル名に合わせて上書きしてください
+    "containerEnv": {
+        "MODEL_PATH": "/app/models/model.gguf",
+        "N_CTX": "4096",
+        "N_GPU_LAYERS": "-1"
+    },
+
+    // モデルファイル（GGUF）をコンテナ内にマウントする設定
+    // ※ "source" はオフラインPCの実際のパスに書き換えてください
+    "mounts": [
+        "source=C:\\llm_models,target=/app/models,type=bind,consistency=cached"
+    ],
+
+    // llama-server の OpenAI互換API / 付属Web UI にブラウザからアクセスするため
+    "forwardPorts": [8080],
+    "portsAttributes": {
+        "8080": {
+            "label": "llama-server (OpenAI互換API / Web UI)",
+            "onAutoForward": "notify"
+        }
+    },
+
+    "postStartCommand": "nvidia-smi || echo '[WARN] GPUが認識できません。nvidia-container-toolkitの設定を確認してください。'",
+
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-azuretools.vscode-docker"
+            ]
+        }
+    }
+}

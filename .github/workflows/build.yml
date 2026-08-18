@@ -1,0 +1,54 @@
+name: Build and Export llama.cpp CUDA Container
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "Dockerfile"
+      - "docker/**"
+      - ".github/workflows/build.yml"
+  workflow_dispatch:
+    inputs:
+      cuda_arch:
+        description: "CMAKE_CUDA_ARCHITECTURES (例: 89 / 89;120 のように ; 区切りで複数指定可)"
+        required: false
+        default: "89"
+      llama_cpp_ref:
+        description: "ビルドする llama.cpp のブランチ・タグ・コミット"
+        required: false
+        default: "master"
+
+env:
+  IMAGE_NAME: qwen-gguf-llamacpp
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          build-args: |
+            CUDA_ARCH=${{ github.event.inputs.cuda_arch || '89' }}
+            LLAMA_CPP_REF=${{ github.event.inputs.llama_cpp_ref || 'master' }}
+          tags: ${{ env.IMAGE_NAME }}:latest
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Save image to tar archive
+        run: docker save ${{ env.IMAGE_NAME }}:latest | gzip > ${{ env.IMAGE_NAME }}.tar.gz
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.IMAGE_NAME }}-image
+          path: ${{ env.IMAGE_NAME }}.tar.gz
+          retention-days: 14

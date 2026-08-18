@@ -1,0 +1,4 @@
+*.gguf
+*.tar
+*.tar.gz
+models/
