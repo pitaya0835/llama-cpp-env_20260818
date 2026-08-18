@@ -16,7 +16,7 @@ devcontainer からモデルをマウントして起動します。
 | ベースイメージ | `pytorch/pytorch`（PyTorch同梱で肥大化） | `nvidia/cuda` の multi-stage build（ビルドツール類を最終イメージに残さない） |
 | 新モデル対応 | pip版が同梱する vendored llama.cpp のバージョンに依存し、最新アーキ（Qwen3系など）への追従が遅れがち | 本家 master を直接ビルドするため最新モデルへの対応が早い |
 | 転送用イメージ | 非圧縮 tar | gzip 圧縮 tar（USB転送・保存容量に有利） |
-| GPUアーキテクチャ指定 | Dockerfile に固定 | ビルド引数 (`CUDA_ARCH`) / workflow_dispatch 入力で切り替え可能 |
+| CUDA / GPUアーキテクチャ | CUDA 12.1 / arch 89 固定 | CUDA 12.8 / arch 120（RTX 5070 Ti・5060 TiのBlackwellにネイティブ対応）。ビルド引数 (`CUDA_ARCH`) / workflow_dispatch 入力で切り替え可能 |
 | UI/API | 自作 `chat.py`（対話CLIのみ） | `llama-server` 標準搭載の OpenAI互換API + Web UI |
 
 ## 構成
@@ -33,20 +33,21 @@ docker/entrypoint.sh           # コンテナ起動時に llama-server を起動
 `main` ブランチに push するか、Actions タブから `workflow_dispatch` で手動実行してください。
 手動実行時は以下を上書きできます。
 
-- `cuda_arch`: 対象GPUの compute capability（既定値 `89` = RTX 40系 / 前回実績のRTX 5070 Ti向け設定を踏襲）。
-  複数GPU環境を想定する場合は `89;120` のように `;` 区切りで複数指定可能（ビルド時間は伸びます）。
+- `cuda_arch`: 対象GPUの compute capability（既定値 `120` = RTX 5070 Ti / RTX 5060 Ti のBlackwell世代にネイティブ対応）。
+  複数GPU環境を想定する場合は `89;120` のように `;` 区切りで複数指定可能（ビルド時間・イメージサイズは伸びます）。
 - `llama_cpp_ref`: ビルドする llama.cpp のブランチ・タグ・コミットハッシュ（既定 `master`）。
 
 ビルドが終わると Artifact `qwen-gguf-llamacpp-image` に `qwen-gguf-llamacpp.tar.gz` が生成されるので、
 ダウンロードして USB 等でオフラインPCに移してください。
 
-> **注記（GPUアーキテクチャについて）**: RTX 50 (Blackwell) 世代の実際の compute capability は
-> `120` です。前回の環境は `89` 指定のまま動作実績があるとのことなので既定値もそれに合わせていますが、
-> これは PTX の forward-compatibility（新しいGPUドライバが古い世代向けPTXを実行時にJITコンパイルする仕組み）
-> に頼っている可能性があります。動作はしますが初回実行時にJITコンパイルの遅延が発生したり、
-> Blackwell固有の最適化が効かない場合があります。ネイティブ対応させたい場合は、
-> ベースイメージを `nvidia/cuda:12.8.1-devel/runtime-ubuntu22.04` 以降に上げた上で
-> `CUDA_ARCH=120`（または `89;120`）を指定してください（CUDA 12.8未満は `sm_120` を認識しません）。
+> **注記（GPUアーキテクチャについて）**: ベースイメージを `nvidia/cuda:12.8.1-devel/runtime-ubuntu22.04` へ、
+> `CUDA_ARCH` を `120`（Blackwell世代のネイティブ compute capability）へ切り替え済みです。
+> 実行側（オフラインPC）には NVIDIA Driver 570.x 以降が必要ですが、確認済みの 610.88 なら問題ありません。
+>
+> トレードオフとして、`120` 単独でビルドしたバイナリは Ada世代以前（例: RTX 40系, compute capability 89）の
+> GPU では動作しません。将来的にBlackwell以外のGPUを組み合わせる予定がある場合は、
+> `CUDA_ARCH=89;120` のように複数アーキ指定でビルドしてください（ビルド時間とイメージサイズが増えます）。
+> 今回は「その時が来たら再ビルドすれば良い」との判断で `120` 単独にしています。
 
 ## 2. オフラインPCでの読み込み
 

@@ -10,9 +10,9 @@ on:
   workflow_dispatch:
     inputs:
       cuda_arch:
-        description: "CMAKE_CUDA_ARCHITECTURES (例: 89 / 89;120 のように ; 区切りで複数指定可)"
+        description: "CMAKE_CUDA_ARCHITECTURES (例: 120 / 89;120 のように ; 区切りで複数指定可)"
         required: false
-        default: "89"
+        default: "120"
       llama_cpp_ref:
         description: "ビルドする llama.cpp のブランチ・タグ・コミット"
         required: false
@@ -36,7 +36,7 @@ jobs:
         with:
           context: .
           build-args: |
-            CUDA_ARCH=${{ github.event.inputs.cuda_arch || '89' }}
+            CUDA_ARCH=${{ github.event.inputs.cuda_arch || '120' }}
             LLAMA_CPP_REF=${{ github.event.inputs.llama_cpp_ref || 'master' }}
           tags: ${{ env.IMAGE_NAME }}:latest
           load: true

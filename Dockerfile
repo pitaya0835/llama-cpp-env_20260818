@@ -5,7 +5,9 @@
 # 出力イメージを USB 等でオフラインPCに移して docker load で使う想定。
 #
 # ===== Build stage =====
-FROM nvidia/cuda:12.4.1-devel-ubuntu22.04 AS build
+# Blackwell世代(RTX 50xx, compute capability 120)をネイティブサポートするには
+# CUDA Toolkit 12.8 以降が必要（12.8未満はsm_120を認識しない）。
+FROM nvidia/cuda:12.8.1-devel-ubuntu22.04 AS build
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -29,9 +31,9 @@ ARG LLAMA_CPP_REF=master
 RUN git clone https://github.com/ggml-org/llama.cpp.git . \
     && git checkout ${LLAMA_CPP_REF}
 
-# RTX 5070 Ti (前回実績: compute capability 89) 向けにビルド。
+# RTX 5070 Ti / RTX 5060 Ti (どちらもBlackwell世代: compute capability 120) 向けにビルド。
 # 別GPUに変える場合は --build-arg CUDA_ARCH=89;120 のように ; 区切りで複数指定可能。
-ARG CUDA_ARCH=89
+ARG CUDA_ARCH=120
 RUN cmake -B build -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DGGML_CUDA=ON \
@@ -43,7 +45,7 @@ RUN cmake -B build -G Ninja \
 # ===== Runtime stage =====
 # devel(ビルドツール一式)を含まないランタイム専用イメージにすることで、
 # USB転送するイメージサイズを大幅に削減する。
-FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS runtime
+FROM nvidia/cuda:12.8.1-runtime-ubuntu22.04 AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
