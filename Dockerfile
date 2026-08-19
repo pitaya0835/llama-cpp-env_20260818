@@ -40,7 +40,7 @@ RUN cmake -B build -G Ninja \
     -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCH} \
     -DGGML_NATIVE=OFF \
     -DLLAMA_CURL=OFF \
-    && cmake --build build --config Release -j"$(nproc)" --target llama-server llama-cli llama-quantize
+    && cmake --build build --config Release -j"$(nproc)" --target llama-server llama-cli llama-mtmd-cli llama-quantize
 
 # ===== Runtime stage =====
 # devel(ビルドツール一式)を含まないランタイム専用イメージにすることで、

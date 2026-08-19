@@ -66,14 +66,24 @@ gunzip -c qwen-gguf-llamacpp.tar.gz | docker load
 
 ## 3. GGUFモデルの用意
 
-オンライン環境で `unsloth/Qwen3.8-27B-GGUF` から使用する量子化レベルのファイルをダウンロードし、
-USBでオフラインPCに移して、任意のディレクトリ（例 `C:\llm_models`）に置いてください。
+`unsloth/Qwen3.8-27B-GGUF` はネイティブVision(画像・動画)対応モデルです。画像を扱うには、
+言語モデル本体の量子化GGUFに加えて、**同じHFリポジトリ内にある `mmproj-*.gguf`（マルチモーダル
+プロジェクタ、ビジョンエンコーダ）を別途ダウンロードする必要があります**。ビジョンエンコーダは
+言語モデルGGUFの中には含まれていません。
 
-- ファイル名は自由ですが、`devcontainer.json` の `MODEL_PATH` をそのファイル名に合わせて書き換えるか、
-  ファイルを `model.gguf` にリネームしてください（既定値は `/app/models/model.gguf`）。
-- **VRAM見積もりの確認を推奨**: 27B級モデルは量子化レベルによってはロード時点で十数GB超のVRAMを消費します。
-  搭載VRAM（例: RTX 5070 Ti は16GB）に対してコンテキスト長分の余裕も必要になるため、
-  Q4_K_M等で収まらない場合は `N_CTX` を下げるか、より低ビットの量子化（IQ4系など）を検討してください。
+オンライン環境で以下の2ファイルをダウンロードし、USBでオフラインPCの同じディレクトリ
+（例 `C:\llm_models`）に置いてください。
+
+- 言語モデル本体: 使用したい量子化レベルの `*.gguf`（例: `Qwen3.8-27B-Q4_K_M.gguf`）
+- マルチモーダルプロジェクタ: `mmproj-F16.gguf`（通常1GB弱。量子化版が複数ある場合はF16を推奨）
+
+- ファイル名は自由ですが、`devcontainer.json` の `MODEL_PATH`/`MMPROJ_PATH` をそのファイル名に合わせて書き換えるか、
+  それぞれ `model.gguf` にリネームしてください（既定値は `/app/models/model.gguf`）。
+- **VRAM見積もりの確認を推奨**: 27B級モデルは量子化レベルによってはロード時点で十数GB超のVRAMを消費し、
+  `mmproj`もGPUにオフロードされるとさらに数百MB〜1GB程度上乗せされます。
+  搭載VRAM（例: RTX 5070 Ti / 5060 Tiは16GB）に対してコンテキスト長分の余裕も必要になるため、
+  収まらない場合は `N_CTX` を下げる、より低ビットの量子化（IQ4系など）を使う、
+  または `NO_MMPROJ_OFFLOAD=1` で mmproj をCPU側に置く、のいずれかを検討してください。
 
 ## 4. devcontainer で起動
 
@@ -88,15 +98,53 @@ USBでオフラインPCに移して、任意のディレクトリ（例 `C:\llm_
 4. ブラウザで `http://localhost:8080` を開くと llama-server 標準のチャットUIが使えます。
    OpenAI互換APIとしても `http://localhost:8080/v1/chat/completions` 等で利用できます。
 
-`docker run` で直接使う場合はENTRYPOINTがそのまま自動起動するので、例えば以下のように実行できます。
+`docker run` で直接使う場合はENTRYPOINTがそのまま自動起動するので、例えば以下のように実行できます
+（`MMPROJ_PATH` を指定すると画像・動画入力が有効になります。未指定ならテキスト専用起動です）。
 
 ```bash
 docker run --rm --gpus all \
   -v C:\llm_models:/app/models \
   -e MODEL_PATH=/app/models/Qwen3.8-27B-Q4_K_M.gguf \
+  -e MMPROJ_PATH=/app/models/mmproj-F16.gguf \
   -p 8080:8080 \
   qwen-gguf-llamacpp:latest
 ```
+
+## 5. 画像入力の使い方
+
+`MMPROJ_PATH` を設定して起動すると、`llama-server` の Web UI (`http://localhost:8080`) から
+画像をドラッグ＆ドロップしてそのままチャットできます。
+
+OpenAI互換APIから使う場合は、`image_url` コンテンツパートに Base64 データURIを渡します。
+
+```bash
+curl http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {"type": "text", "text": "この画像には何が写っていますか？"},
+          {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,<Base64文字列>"}}
+        ]
+      }
+    ]
+  }'
+```
+
+コンテナ内でAPIを介さず直接テストしたい場合は、同梱の `llama-mtmd-cli` も使えます。
+
+```bash
+/app/llama-mtmd-cli \
+  --model /app/models/Qwen3.8-27B-Q4_K_M.gguf \
+  --mmproj /app/models/mmproj-F16.gguf \
+  --image /app/models/sample.jpg \
+  -p "この画像を説明してください"
+```
+
+Difyから画像付きで使う場合は、モデルプロバイダー設定の「Vision support」を有効にしてください。
+有効にしないとDify側が画像添付欄自体を表示しません。
 
 ## トラブルシューティング
 

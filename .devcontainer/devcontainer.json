@@ -12,8 +12,10 @@
     ],
 
     // 使用したいGGUFファイル名に合わせて上書きしてください
+    // 画像・動画入力を使う場合は MMPROJ_PATH に mmproj-*.gguf のパスを指定
     "containerEnv": {
         "MODEL_PATH": "/app/models/model.gguf",
+        "MMPROJ_PATH": "",
         "N_CTX": "4096",
         "N_GPU_LAYERS": "-1"
     },
