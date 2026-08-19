@@ -51,6 +51,15 @@ docker/entrypoint.sh           # コンテナ起動時に llama-server を起動
 
 ## 2. オフラインPCでの読み込み
 
+`docker load` はgzip圧縮されたtarをそのまま自動認識するため、`gunzip`等での手動展開は不要です
+（Windowsには標準で`gunzip`コマンドが無いため、`docker load -i`を直接使ってください）。
+
+```powershell
+docker load -i qwen-gguf-llamacpp.tar.gz
+```
+
+Linux/macOSでパイプで読み込みたい場合は次の書き方でも同様に動作します。
+
 ```bash
 gunzip -c qwen-gguf-llamacpp.tar.gz | docker load
 ```
